@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRIBASED</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <div id="app">
+        <div id="header">
+            <div id="wallet-info">
+                <span id="wallet-address">Not connected</span>
+                <button id="connect-wallet">Connect Wallet</button>
+            </div>
+        </div>
+
+        <div id="words-display">
+            <!-- Words will be populated here as a sentence -->
+        </div>
+
+        <div id="status-messages"></div>
+    </div>
+
+    <script src="ethers-5.7.2.umd.min.js"></script>
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+</body>
+
+</html>
