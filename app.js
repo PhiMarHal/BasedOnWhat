@@ -205,6 +205,39 @@ function showStatus(message, type = 'info') {
     }, 5000);
 }
 
+async function switchNetwork() {
+    try {
+        await window.ethereum.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: '0x2105' }], // 8453 in hex for Base
+        });
+    } catch (switchError) {
+        // This error code indicates that the chain has not been added to MetaMask
+        if (switchError.code === 4902) {
+            try {
+                await window.ethereum.request({
+                    method: 'wallet_addEthereumChain',
+                    params: [{
+                        chainId: '0x2105',
+                        chainName: 'Base',
+                        nativeCurrency: {
+                            name: 'ETH',
+                            symbol: 'ETH',
+                            decimals: 18
+                        },
+                        rpcUrls: ['https://base-rpc.publicnode.com'],
+                        blockExplorerUrls: ['https://basescan.org']
+                    }]
+                });
+            } catch (addError) {
+                throw new Error('Could not add Base network to wallet');
+            }
+        } else {
+            throw switchError;
+        }
+    }
+}
+
 async function connectWallet() {
     try {
         if (typeof window.ethereum === 'undefined') {
@@ -214,10 +247,10 @@ async function connectWallet() {
         const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
         userAddress = accounts[0];
 
-        // Check if we're on the correct network (Scroll)
+        // Check if we're on Base
         const chainId = await window.ethereum.request({ method: 'eth_chainId' });
-        if (chainId !== '0x82750') { // Scroll Mainnet
-            await switchToScroll();
+        if (chainId !== '0x2105') { // Base Mainnet
+            await switchNetwork();
         }
 
         // Set up Web3 provider and contract with signer
@@ -228,50 +261,14 @@ async function connectWallet() {
         document.getElementById('wallet-address').textContent =
             `Connected: ${userAddress.slice(0, 6)}...${userAddress.slice(-4)}`;
 
-        // Check if user is registered and get their tribe
+        // Check if user is registered
         const user = await contract.users(userAddress);
         if (user.name === '') {
             document.getElementById('user-info').style.display = 'block';
-        } else {
-            showStatus(`Welcome back, ${user.name}!`, 'success');
-            highlightUserTribe(user.tribe);
         }
 
     } catch (error) {
         showStatus(`Wallet connection error: ${error.message}`, 'error');
-    }
-}
-
-async function switchToScroll() {
-    try {
-        await window.ethereum.request({
-            method: 'wallet_switchEthereumChain',
-            params: [{ chainId: '0x82750' }], // Scroll Mainnet
-        });
-    } catch (switchError) {
-        // This error code indicates that the chain has not been added to MetaMask
-        if (switchError.code === 4902) {
-            try {
-                await window.ethereum.request({
-                    method: 'wallet_addEthereumChain',
-                    params: [{
-                        chainId: '0x82750',
-                        chainName: 'Scroll',
-                        nativeCurrency: {
-                            name: 'ETH',
-                            symbol: 'ETH',
-                            decimals: 18
-                        },
-                        rpcUrls: ['https://scroll-rpc.publicnode.com'],
-                        blockExplorerUrls: ['https://scrollscan.com/']
-                    }]
-                });
-            } catch (addError) {
-                throw new Error('Could not add Scroll network to wallet');
-            }
-        } else {
-            throw switchError;
-        }
     }
 }
 
