@@ -2,6 +2,8 @@ let contract;
 let provider;
 let signer;
 let userAddress;
+let cachedWords = new Array(128);
+let loadingAnimationInterval;
 
 async function initializeApp() {
     try {
@@ -11,8 +13,13 @@ async function initializeApp() {
         // Set up event listeners
         document.getElementById('connect-wallet').addEventListener('click', connectWallet);
 
-        // Initial UI update
-        await updateWordsDisplay();
+        // Initial word loading with animation
+        await loadAllWords();
+
+        // Set up contract event listener for word updates
+        contract.on("Contributed", (wordIndex, author, event) => {
+            updateSingleWord(wordIndex.toNumber());
+        });
 
         // Listen for network changes
         if (window.ethereum) {
@@ -25,43 +32,81 @@ async function initializeApp() {
     }
 }
 
-async function updateWordsDisplay() {
-    try {
-        const wordsContainer = document.getElementById('words-display');
-        wordsContainer.innerHTML = 'Loading story...';
+function startLoadingAnimation() {
+    const wordsContainer = document.getElementById('words-display');
+    let dots = 1;
 
-        // Fetch all words (0-127)
+    // Clear any existing content and set up loading display
+    wordsContainer.innerHTML = `<div class="loading-dots">.</div>`;
+    const dotsElement = wordsContainer.querySelector('.loading-dots');
+
+    // Clear any existing interval
+    if (loadingAnimationInterval) {
+        clearInterval(loadingAnimationInterval);
+    }
+
+    loadingAnimationInterval = setInterval(() => {
+        dots = (dots % 3) + 1;
+        dotsElement.textContent = '.'.repeat(dots);
+    }, 500);
+}
+
+function stopLoadingAnimation() {
+    if (loadingAnimationInterval) {
+        clearInterval(loadingAnimationInterval);
+        loadingAnimationInterval = null;
+    }
+}
+
+async function loadAllWords() {
+    startLoadingAnimation();
+
+    try {
         const wordPromises = [];
         for (let i = 0; i < 128; i++) {
             wordPromises.push(getWordWithAuthorInfo(i));
         }
 
-        const words = await Promise.all(wordPromises);
-
-        // Clear container
-        wordsContainer.innerHTML = '';
-
-        // Display words as a continuous sentence
-        words.forEach((wordInfo, index) => {
-            if (index > 0) {
-                // Add space before words (except the first one)
-                wordsContainer.appendChild(document.createTextNode(' '));
-            }
-
-            const wordSpan = document.createElement('span');
-            wordSpan.className = 'word';
-            wordSpan.textContent = wordInfo.word;
-            wordSpan.dataset.tribe = wordInfo.tribe;
-            wordSpan.dataset.index = index;
-            wordSpan.dataset.author = wordInfo.authorName || wordInfo.authorAddress;
-
-            wordSpan.onclick = () => showWordPopup(index, wordInfo);
-
-            wordsContainer.appendChild(wordSpan);
-        });
+        cachedWords = await Promise.all(wordPromises);
+        await updateWordsDisplay();
     } catch (error) {
-        showStatus(`Display update error: ${error.message}`, 'error');
+        showStatus(`Error loading words: ${error.message}`, 'error');
+    } finally {
+        stopLoadingAnimation();
     }
+}
+
+async function updateSingleWord(index) {
+    try {
+        cachedWords[index] = await getWordWithAuthorInfo(index);
+        await updateWordsDisplay();
+    } catch (error) {
+        showStatus(`Error updating word ${index}: ${error.message}`, 'error');
+    }
+}
+
+async function updateWordsDisplay() {
+    const wordsContainer = document.getElementById('words-display');
+    wordsContainer.innerHTML = '';
+
+    // Display words as a continuous sentence
+    cachedWords.forEach((wordInfo, index) => {
+        if (index > 0) {
+            // Add space before words (except the first one)
+            wordsContainer.appendChild(document.createTextNode(' '));
+        }
+
+        const wordSpan = document.createElement('span');
+        wordSpan.className = 'word';
+        wordSpan.textContent = wordInfo.word;
+        wordSpan.dataset.tribe = wordInfo.tribe;
+        wordSpan.dataset.index = index;
+        wordSpan.dataset.author = wordInfo.authorName || wordInfo.authorAddress;
+
+        wordSpan.onclick = () => showWordPopup(index, wordInfo);
+
+        wordsContainer.appendChild(wordSpan);
+    });
 }
 
 function showWordPopup(wordIndex, wordInfo) {
@@ -258,19 +303,37 @@ async function connectWallet() {
         signer = web3Provider.getSigner();
         contract = new ethers.Contract(CONFIG.CONTRACT_ADDRESS, CONFIG.CONTRACT_ABI, signer);
 
-        document.getElementById('wallet-address').textContent =
-            `Connected: ${userAddress.slice(0, 6)}...${userAddress.slice(-4)}`;
-
-        // Check if user is registered
-        const user = await contract.users(userAddress);
-        if (user.name === '') {
-            document.getElementById('user-info').style.display = 'block';
-        }
+        // Update wallet display
+        await updateWalletDisplay();
 
     } catch (error) {
         showStatus(`Wallet connection error: ${error.message}`, 'error');
     }
 }
+
+async function updateWalletDisplay() {
+    const walletInfo = document.getElementById('wallet-info');
+
+    if (!userAddress) {
+        walletInfo.innerHTML = '<button id="connect-wallet">Connect Wallet</button>';
+        document.getElementById('connect-wallet').addEventListener('click', connectWallet);
+        return;
+    }
+
+    try {
+        // Check if user has registered a name
+        const user = await contract.users(userAddress);
+        const displayText = user.name ? user.name : `${userAddress.slice(0, 6)}...${userAddress.slice(-4)}`;
+
+        walletInfo.innerHTML = `<span class="wallet-address">${displayText}</span>`;
+
+    } catch (error) {
+        console.error('Error fetching user info:', error);
+        walletInfo.innerHTML = `<span class="wallet-address">${userAddress.slice(0, 6)}...${userAddress.slice(-4)}</span>`;
+    }
+}
+
+
 
 async function registerUser() {
     try {
@@ -354,15 +417,19 @@ function highlightUserTribe(tribe) {
 // Initialize app when page loads
 window.addEventListener('load', initializeApp);
 
-// Handle account changes
+// Update event handler for account changes
 if (window.ethereum) {
-    window.ethereum.on('accountsChanged', (accounts) => {
+    window.ethereum.on('accountsChanged', async (accounts) => {
         if (accounts.length === 0) {
             userAddress = null;
-            document.getElementById('wallet-address').textContent = 'Not connected';
-            document.getElementById('user-info').style.display = 'none';
+            await updateWalletDisplay();
         } else {
-            connectWallet();
+            userAddress = accounts[0];
+            await connectWallet();
         }
     });
 }
+
+contract.on("WordUpdated", async (wordIndex, author, event) => {
+    await updateSingleWord(wordIndex.toNumber());
+});
