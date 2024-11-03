@@ -4,6 +4,47 @@ let signer;
 let userAddress;
 let cachedWords = new Array(128);
 let loadingAnimationInterval;
+let eventProcessingQueue = new Set();
+let isProcessingEvents = false;
+
+async function setupEventListener() {
+    contract.on("WordUpdated", (wordIndex, author, event) => {
+        // Add the word index to our processing queue
+        eventProcessingQueue.add(wordIndex.toNumber());
+        processEventQueue();
+    });
+}
+
+async function processEventQueue() {
+    // If we're already processing events, return
+    if (isProcessingEvents) return;
+
+    try {
+        isProcessingEvents = true;
+
+        while (eventProcessingQueue.size > 0) {
+            // Get all current indices to process
+            const indices = Array.from(eventProcessingQueue);
+            eventProcessingQueue.clear();
+
+            // Update all words in parallel
+            await Promise.all(indices.map(async (index) => {
+                try {
+                    await updateSingleWord(index);
+                } catch (error) {
+                    console.error(`Error updating word ${index}:`, error);
+                }
+            }));
+        }
+    } finally {
+        isProcessingEvents = false;
+
+        // Check if new events came in while we were processing
+        if (eventProcessingQueue.size > 0) {
+            processEventQueue();
+        }
+    }
+}
 
 async function initializeApp() {
     try {
@@ -16,10 +57,8 @@ async function initializeApp() {
         // Initial word loading with animation
         await loadAllWords();
 
-        // Set up contract event listener for word updates
-        contract.on("WordUpdated", async (wordIndex, author, event) => {
-            await updateSingleWord(wordIndex.toNumber());
-        });
+        // Set up contract event listener
+        setupEventListener();
 
         // Listen for network changes
         if (window.ethereum) {
@@ -161,17 +200,22 @@ function showWordPopup(wordIndex, wordInfo) {
         }
 
         try {
-            if (!/^[a-zA-Z]+$/.test(newWord)) {
-                throw new Error('Word must contain only letters');
+            if (!validateWord(newWord)) {
+                throw new Error('Word must contain only letters, with optional punctuation at the end');
             }
 
             setLoading(true);
             const tx = await contract.contribute(wordIndex, newWord);
-            await tx.wait();
 
+            // Close popup as soon as transaction is sent
             popup.remove();
+            showStatus('Transaction sent! Waiting for confirmation...', 'success');
+
+            // Wait for transaction confirmation
+            await tx.wait();
             showStatus('Word contributed successfully!', 'success');
-            await updateWordsDisplay();
+            await updateSingleWord(wordIndex);
+
         } catch (error) {
             showStatus(`Error: ${error.message}`, 'error');
         } finally {
@@ -333,7 +377,22 @@ async function updateWalletDisplay() {
     }
 }
 
+function validateWord(word) {
+    // First check if the word is empty or too long
+    if (!word || word.length > 32) return false;
 
+    // If word is only one character, it must be a letter
+    if (word.length === 1) return /^[a-zA-Z]$/.test(word);
+
+    // For longer words:
+    // 1. All characters except the last must be letters
+    // 2. Last character can be a letter or allowed punctuation
+    const allButLast = word.slice(0, -1);
+    const lastChar = word.slice(-1);
+
+    return /^[a-zA-Z]+$/.test(allButLast) &&
+        /^[a-zA-Z,\.;!?]$/.test(lastChar);
+}
 
 async function registerUser() {
     try {
