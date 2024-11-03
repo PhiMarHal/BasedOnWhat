@@ -7,43 +7,106 @@ let loadingAnimationInterval;
 let eventProcessingQueue = new Set();
 let isProcessingEvents = false;
 
+let pendingUpdates = new Set();
+let processedTransactions = new Set();
+
+let lastFullUpdate = 0;
+const FULL_UPDATE_INTERVAL = 10000; // 10 seconds
+const FORCE_UPDATE_INTERVAL = 60000; // 1 minute - force update even if no changes detected
+
+
 async function setupEventListener() {
     contract.on("WordUpdated", (wordIndex, author, event) => {
-        // Add the word index to our processing queue
-        eventProcessingQueue.add(wordIndex.toNumber());
+        // Store transaction hash to prevent duplicate processing
+        if (processedTransactions.has(event.transactionHash)) {
+            return;
+        }
+        processedTransactions.add(event.transactionHash);
+
+        // Keep processed transactions set from growing indefinitely
+        if (processedTransactions.size > 1000) {
+            processedTransactions.clear();
+        }
+
+        pendingUpdates.add(wordIndex.toNumber());
         processEventQueue();
     });
+
+    // Remove old event listener when setting up new one
+    return () => {
+        contract.removeListener("WordUpdated", listener);
+    };
 }
 
 async function processEventQueue() {
-    // If we're already processing events, return
     if (isProcessingEvents) return;
 
     try {
         isProcessingEvents = true;
 
-        while (eventProcessingQueue.size > 0) {
-            // Get all current indices to process
-            const indices = Array.from(eventProcessingQueue);
-            eventProcessingQueue.clear();
+        while (pendingUpdates.size > 0) {
+            const indices = Array.from(pendingUpdates);
+            pendingUpdates.clear();
 
-            // Update all words in parallel
+            // Add retry mechanism for failed updates
+            const failedUpdates = [];
+
             await Promise.all(indices.map(async (index) => {
                 try {
                     await updateSingleWord(index);
                 } catch (error) {
                     console.error(`Error updating word ${index}:`, error);
+                    failedUpdates.push(index);
                 }
             }));
+
+            // Re-add failed updates to the queue
+            failedUpdates.forEach(index => pendingUpdates.add(index));
         }
     } finally {
         isProcessingEvents = false;
 
-        // Check if new events came in while we were processing
-        if (eventProcessingQueue.size > 0) {
+        if (pendingUpdates.size > 0) {
             processEventQueue();
         }
     }
+}
+
+async function setupPeriodicUpdates() {
+    setInterval(async () => {
+        const now = Date.now();
+
+        // If we have pending updates or it's been a minute, do a full refresh
+        if (pendingUpdates.size > 0 || now - lastFullUpdate >= FORCE_UPDATE_INTERVAL) {
+            try {
+                const currentWords = await fetchAllCurrentWords();
+                let hasChanges = false;
+
+                // Compare with cached words
+                currentWords.forEach((wordInfo, index) => {
+                    if (JSON.stringify(wordInfo) !== JSON.stringify(cachedWords[index])) {
+                        hasChanges = true;
+                        cachedWords[index] = wordInfo;
+                    }
+                });
+
+                if (hasChanges) {
+                    await updateWordsDisplay();
+                    lastFullUpdate = now;
+                }
+            } catch (error) {
+                console.error('Periodic update failed:', error);
+            }
+        }
+    }, FULL_UPDATE_INTERVAL);
+}
+
+async function fetchAllCurrentWords() {
+    const wordPromises = [];
+    for (let i = 0; i < 128; i++) {
+        wordPromises.push(getWordWithAuthorInfo(i));
+    }
+    return Promise.all(wordPromises);
 }
 
 async function initializeApp() {
@@ -51,16 +114,12 @@ async function initializeApp() {
         provider = new ethers.providers.JsonRpcProvider(CONFIG.RPC_URL);
         contract = new ethers.Contract(CONFIG.CONTRACT_ADDRESS, CONFIG.CONTRACT_ABI, provider);
 
-        // Set up event listeners
         document.getElementById('connect-wallet').addEventListener('click', connectWallet);
 
-        // Initial word loading with animation
         await loadAllWords();
-
-        // Set up contract event listener
         setupEventListener();
+        setupPeriodicUpdates();  // Add periodic updates
 
-        // Listen for network changes
         if (window.ethereum) {
             window.ethereum.on('chainChanged', () => {
                 window.location.reload();
