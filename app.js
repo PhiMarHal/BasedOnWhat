@@ -176,10 +176,26 @@ async function loadAllWords() {
 
 async function updateSingleWord(index) {
     try {
-        cachedWords[index] = await getWordWithAuthorInfo(index);
-        await updateWordsDisplay();
+        const newWordInfo = await getWordWithAuthorInfo(index);
+        // Deep compare the new word info with cached version
+        if (!cachedWords[index] ||
+            JSON.stringify(cachedWords[index]) !== JSON.stringify(newWordInfo)) {
+
+            // Log tribe changes for debugging
+            if (cachedWords[index] && cachedWords[index].tribe !== newWordInfo.tribe) {
+                console.log(`Tribe change detected for word ${index}:`, {
+                    old: cachedWords[index].tribe,
+                    new: newWordInfo.tribe,
+                    author: newWordInfo.authorAddress
+                });
+            }
+
+            cachedWords[index] = newWordInfo;
+            await updateWordsDisplay();
+        }
     } catch (error) {
-        showStatus(`Error updating word ${index}: ${error.message}`, 'error');
+        console.error(`Error updating word ${index}:`, error);
+        // Don't update cache if we got an error
     }
 }
 
@@ -297,16 +313,25 @@ async function getWordWithAuthorInfo(index) {
     try {
         const [word, author] = await contract.getLastWord(index);
         let authorName = '';
-        let tribe = '0'; // default tribe
+        let tribe = '0'; // We should only default to this if we really can't get the info
 
-        // Try to get author's registered name and tribe
-        if (author !== ethers.constants.AddressZero) {
+        // Only proceed with user info fetch if we have a valid author
+        if (author && author !== ethers.constants.AddressZero) {
             try {
+                // Get user info directly
                 const user = await contract.users(author);
-                authorName = user.name;
-                tribe = user.tribe.toString();
+                // Make sure we got valid data back
+                if (user) {
+                    authorName = user.name || '';
+                    // Only set tribe if we got a valid number back
+                    if (user.tribe != null && !isNaN(user.tribe)) {
+                        tribe = user.tribe.toString();
+                    }
+                }
             } catch (error) {
-                console.warn(`Couldn't fetch user info for ${author}`);
+                console.error(`Error fetching user info for word ${index}, author ${author}:`, error);
+                // Don't default to tribe 0, keep trying to fetch
+                throw error; // Let the outer try-catch handle it
             }
         }
 
@@ -320,12 +345,29 @@ async function getWordWithAuthorInfo(index) {
         };
     } catch (error) {
         console.error(`Error fetching word ${index}:`, error);
-        return {
-            word: '[...]',
-            authorAddress: 'unknown',
-            authorName: '',
-            tribe: '0'
-        };
+        // Try one more time before giving up
+        try {
+            await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+            const [word, author] = await contract.getLastWord(index);
+            const user = await contract.users(author);
+            return {
+                word: word || '[...]',
+                authorAddress: author === ethers.constants.AddressZero ?
+                    'unknown' :
+                    `${author.slice(0, 6)}...${author.slice(-4)}`,
+                authorName: user.name || '',
+                tribe: user.tribe.toString()
+            };
+        } catch (retryError) {
+            console.error(`Retry failed for word ${index}:`, retryError);
+            // Only now do we return a default tribe
+            return {
+                word: '[error]',
+                authorAddress: 'unknown',
+                authorName: '',
+                tribe: '0'  // Last resort default
+            };
+        }
     }
 }
 
