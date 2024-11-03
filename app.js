@@ -17,8 +17,8 @@ async function initializeApp() {
         await loadAllWords();
 
         // Set up contract event listener for word updates
-        contract.on("Contributed", (wordIndex, author, event) => {
-            updateSingleWord(wordIndex.toNumber());
+        contract.on("WordUpdated", async (wordIndex, author, event) => {
+            await updateSingleWord(wordIndex.toNumber());
         });
 
         // Listen for network changes
@@ -430,6 +430,3 @@ if (window.ethereum) {
     });
 }
 
-contract.on("WordUpdated", async (wordIndex, author, event) => {
-    await updateSingleWord(wordIndex.toNumber());
-});
