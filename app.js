@@ -12,8 +12,30 @@ const wordCache = {
     version: 0,
     pendingUpdates: new Set(),
     processedTransactions: new Set(),
-    isProcessingEvents: false
+    isProcessingEvents: false,
+    pendingTransactions: new Map()
 };
+
+function setupPendingTransactionCleanup() {
+    // Clean up pending transactions on page load
+    const cleanup = async () => {
+        const pendingWords = wordCache.words.reduce((acc, word, index) => {
+            if (word?.isPending) acc.push(index);
+            return acc;
+        }, []);
+
+        // Update all pending words with their actual blockchain state
+        for (const index of pendingWords) {
+            await updateSingleWord(index);
+        }
+    };
+
+    // Run cleanup on page load
+    cleanup();
+
+    // Add cleanup on page unload/refresh
+    window.addEventListener('beforeunload', cleanup);
+}
 
 
 function setupEventListener() {
@@ -100,6 +122,8 @@ async function initializeApp() {
 
         // Set up periodic cache maintenance
         setupCacheMaintenance();
+
+        setupPendingTransactionCleanup();
 
         if (window.ethereum) {
             window.ethereum.on('chainChanged', () => {
@@ -328,12 +352,18 @@ async function updateWordsDisplay() {
 
         const wordSpan = document.createElement('span');
         wordSpan.className = 'word';
+        if (wordInfo.isPending) {
+            wordSpan.classList.add('word-pending');
+        }
         wordSpan.textContent = wordInfo.word;
-        wordSpan.dataset.tribe = wordInfo.tribe;
+        wordSpan.dataset.tribe = wordInfo.isPending ? 'pending' : wordInfo.tribe;
         wordSpan.dataset.index = index;
         wordSpan.dataset.author = wordInfo.authorName || wordInfo.authorAddress;
 
-        wordSpan.onclick = () => showWordPopup(index, wordInfo);
+        // Disable click handler for pending words
+        if (!wordInfo.isPending) {
+            wordSpan.onclick = () => showWordPopup(index, wordInfo);
+        }
 
         wordsContainer.appendChild(wordSpan);
     });
@@ -396,19 +426,38 @@ function showWordPopup(wordIndex, wordInfo) {
             }
 
             setLoading(true);
-            const tx = await contract.contribute(wordIndex, newWord);
 
-            // Close popup as soon as transaction is sent
+            // Optimistically update the display
+            const optimisticWordInfo = {
+                word: newWord,
+                authorAddress: userAddress,
+                authorName: (await contract.users(userAddress)).name || userAddress,
+                tribe: 'pending', // Special case for pending words
+                isPending: true   // Flag to track pending state
+            };
+
+            // Update cache with optimistic data
+            wordCache.words[wordIndex] = optimisticWordInfo;
+            await updateWordsDisplay();
+
+            // Close popup immediately
             popup.remove();
+
+            // Send transaction
+            const tx = await contract.contribute(wordIndex, newWord);
             showStatus('Transaction sent! Waiting for confirmation...', 'success');
 
             // Wait for transaction confirmation
             await tx.wait();
             showStatus('Word contributed successfully!', 'success');
+
+            // Update with real data from blockchain
             await updateSingleWord(wordIndex);
 
         } catch (error) {
             showStatus(`Error: ${error.message}`, 'error');
+            // Revert optimistic update if there was an error
+            await updateSingleWord(wordIndex);
         } finally {
             setLoading(false);
         }
