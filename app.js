@@ -2,103 +2,78 @@ let contract;
 let provider;
 let signer;
 let userAddress;
-let cachedWords = new Array(128);
 let loadingAnimationInterval;
-let eventProcessingQueue = new Set();
-let isProcessingEvents = false;
 
-let pendingUpdates = new Set();
-let processedTransactions = new Set();
+// Cache structure initialization
+const wordCache = {
+    words: new Array(128),
+    users: new Map(),
+    lastFullUpdate: 0,
+    version: 0,
+    pendingUpdates: new Set(),
+    processedTransactions: new Set(),
+    isProcessingEvents: false
+};
 
-let lastFullUpdate = 0;
-const FULL_UPDATE_INTERVAL = 10000; // 10 seconds
-const FORCE_UPDATE_INTERVAL = 60000; // 1 minute - force update even if no changes detected
 
+function setupEventListener() {
+    // Remove any existing listeners
+    contract.removeAllListeners("WordUpdated");
 
-async function setupEventListener() {
+    // Set up new listener
     contract.on("WordUpdated", (wordIndex, author, event) => {
-        // Store transaction hash to prevent duplicate processing
-        if (processedTransactions.has(event.transactionHash)) {
+        // Prevent duplicate processing
+        if (wordCache.processedTransactions.has(event.transactionHash)) {
             return;
         }
-        processedTransactions.add(event.transactionHash);
+        wordCache.processedTransactions.add(event.transactionHash);
 
-        // Keep processed transactions set from growing indefinitely
-        if (processedTransactions.size > 1000) {
-            processedTransactions.clear();
-        }
-
-        pendingUpdates.add(wordIndex.toNumber());
+        // Add to pending updates
+        wordCache.pendingUpdates.add(wordIndex.toNumber());
         processEventQueue();
     });
-
-    // Remove old event listener when setting up new one
-    return () => {
-        contract.removeListener("WordUpdated", listener);
-    };
 }
 
 async function processEventQueue() {
-    if (isProcessingEvents) return;
+    if (wordCache.isProcessingEvents) return;
 
     try {
-        isProcessingEvents = true;
+        wordCache.isProcessingEvents = true;
 
-        while (pendingUpdates.size > 0) {
-            const indices = Array.from(pendingUpdates);
-            pendingUpdates.clear();
+        while (wordCache.pendingUpdates.size > 0) {
+            const indices = Array.from(wordCache.pendingUpdates);
+            wordCache.pendingUpdates.clear();
 
-            // Add retry mechanism for failed updates
-            const failedUpdates = [];
+            // Process updates in smaller batches
+            const BATCH_SIZE = 5;
+            for (let i = 0; i < indices.length; i += BATCH_SIZE) {
+                const batch = indices.slice(i, i + BATCH_SIZE);
 
-            await Promise.all(indices.map(async (index) => {
-                try {
-                    await updateSingleWord(index);
-                } catch (error) {
-                    console.error(`Error updating word ${index}:`, error);
-                    failedUpdates.push(index);
+                // Update each word in the batch
+                await Promise.all(batch.map(async (index) => {
+                    try {
+                        await updateSingleWord(index);
+                    } catch (error) {
+                        console.error(`Error updating word ${index}:`, error);
+                        // Re-add failed updates to the queue
+                        wordCache.pendingUpdates.add(index);
+                    }
+                }));
+
+                // Add small delay between batches if more remain
+                if (i + BATCH_SIZE < indices.length) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
                 }
-            }));
-
-            // Re-add failed updates to the queue
-            failedUpdates.forEach(index => pendingUpdates.add(index));
+            }
         }
     } finally {
-        isProcessingEvents = false;
+        wordCache.isProcessingEvents = false;
 
-        if (pendingUpdates.size > 0) {
+        // If new updates came in while processing, run again
+        if (wordCache.pendingUpdates.size > 0) {
             processEventQueue();
         }
     }
-}
-
-async function setupPeriodicUpdates() {
-    setInterval(async () => {
-        const now = Date.now();
-
-        // If we have pending updates or it's been a minute, do a full refresh
-        if (pendingUpdates.size > 0 || now - lastFullUpdate >= FORCE_UPDATE_INTERVAL) {
-            try {
-                const currentWords = await fetchAllCurrentWords();
-                let hasChanges = false;
-
-                // Compare with cached words
-                currentWords.forEach((wordInfo, index) => {
-                    if (JSON.stringify(wordInfo) !== JSON.stringify(cachedWords[index])) {
-                        hasChanges = true;
-                        cachedWords[index] = wordInfo;
-                    }
-                });
-
-                if (hasChanges) {
-                    await updateWordsDisplay();
-                    lastFullUpdate = now;
-                }
-            } catch (error) {
-                console.error('Periodic update failed:', error);
-            }
-        }
-    }, FULL_UPDATE_INTERVAL);
 }
 
 async function fetchAllCurrentWords() {
@@ -114,11 +89,17 @@ async function initializeApp() {
         provider = new ethers.providers.JsonRpcProvider(CONFIG.RPC_URL);
         contract = new ethers.Contract(CONFIG.CONTRACT_ADDRESS, CONFIG.CONTRACT_ABI, provider);
 
+        // Set up UI event listeners
         document.getElementById('connect-wallet').addEventListener('click', connectWallet);
 
+        // Initial load of all words
         await loadAllWords();
+
+        // Set up contract event listeners
         setupEventListener();
-        setupPeriodicUpdates();  // Add periodic updates
+
+        // Set up periodic cache maintenance
+        setupCacheMaintenance();
 
         if (window.ethereum) {
             window.ethereum.on('chainChanged', () => {
@@ -128,6 +109,39 @@ async function initializeApp() {
     } catch (error) {
         showStatus(`Initialization error: ${error.message}`, 'error');
     }
+}
+
+function setupCacheMaintenance() {
+    // Clean up old user data periodically
+    setInterval(() => {
+        const now = Date.now();
+        const MAX_USER_CACHE_AGE = 24 * 60 * 60 * 1000; // 24 hours
+
+        for (const [address, data] of wordCache.users) {
+            if (now - data.lastUpdated > MAX_USER_CACHE_AGE) {
+                wordCache.users.delete(address);
+            }
+        }
+
+        // Keep processed transactions set from growing too large
+        if (wordCache.processedTransactions.size > 1000) {
+            wordCache.processedTransactions.clear();
+        }
+    }, 60 * 60 * 1000); // Run every hour
+
+    // Periodic full refresh to catch any missed updates
+    setInterval(async () => {
+        const now = Date.now();
+        const FORCE_UPDATE_INTERVAL = 5 * 60 * 1000; // 5 minutes
+
+        if (now - wordCache.lastFullUpdate >= FORCE_UPDATE_INTERVAL) {
+            try {
+                await loadAllWords();
+            } catch (error) {
+                console.error('Periodic refresh failed:', error);
+            }
+        }
+    }, 60 * 1000); // Check every minute
 }
 
 function startLoadingAnimation() {
@@ -160,42 +174,144 @@ async function loadAllWords() {
     startLoadingAnimation();
 
     try {
-        const wordPromises = [];
-        for (let i = 0; i < 128; i++) {
-            wordPromises.push(getWordWithAuthorInfo(i));
+        const BATCH_SIZE = 10; // Adjust based on RPC limits
+        const DELAY_BETWEEN_BATCHES = 100; // ms
+
+        for (let i = 0; i < 128; i += BATCH_SIZE) {
+            const wordBatch = await fetchWordBatch(i, BATCH_SIZE);
+
+            // Collect unique authors from this batch
+            const authors = wordBatch
+                .map(w => w.author)
+                .filter(author => author !== 'unknown');
+
+            // Fetch user info for new authors
+            await fetchUserBatch(authors);
+
+            // Update cache with new word data
+            wordBatch.forEach(({ index, word, author }) => {
+                const userInfo = wordCache.users.get(author) || { name: '', tribe: '0' };
+                wordCache.words[index] = {
+                    word: word || '[...]',
+                    authorAddress: author,
+                    authorName: userInfo.name,
+                    tribe: userInfo.tribe
+                };
+            });
+
+            // Add delay between batches to avoid rate limits
+            if (i + BATCH_SIZE < 128) {
+                await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_BATCHES));
+            }
         }
 
-        cachedWords = await Promise.all(wordPromises);
+        wordCache.lastFullUpdate = Date.now();
+        wordCache.version++;
         await updateWordsDisplay();
+
     } catch (error) {
-        showStatus(`Error loading words: ${error.message}`, 'error');
+        console.error('Error in loadAllWords:', error);
+        // If we have cached data, use it
+        if (wordCache.words.some(w => w)) {
+            await updateWordsDisplay();
+            showStatus('Using cached data due to network issues', 'warning');
+        } else {
+            showStatus('Failed to load words', 'error');
+        }
     } finally {
         stopLoadingAnimation();
     }
 }
 
+async function fetchWordBatch(startIndex, batchSize) {
+    const promises = [];
+    for (let i = 0; i < batchSize && (startIndex + i) < 128; i++) {
+        promises.push(contract.getLastWord(startIndex + i)
+            .then(([word, author]) => ({
+                index: startIndex + i,
+                word,
+                author
+            }))
+            .catch(error => ({
+                index: startIndex + i,
+                error,
+                // Use cached data if available
+                word: wordCache.words[startIndex + i]?.word || '[...]',
+                author: wordCache.words[startIndex + i]?.authorAddress || 'unknown'
+            }))
+        );
+    }
+    return Promise.all(promises);
+}
+
+async function fetchUserBatch(addresses) {
+    // Filter out addresses we already have cached
+    const uniqueAddresses = [...new Set(addresses)].filter(addr =>
+        addr !== 'unknown' &&
+        addr !== ethers.constants.AddressZero &&
+        !wordCache.users.has(addr)
+    );
+
+    const promises = uniqueAddresses.map(address =>
+        contract.users(address)
+            .then(user => ({
+                address,
+                name: user.name,
+                tribe: user.tribe.toString()
+            }))
+            .catch(() => ({
+                address,
+                name: '',
+                tribe: '0'  // Default tribe
+            }))
+    );
+
+    const results = await Promise.all(promises);
+
+    // Update user cache
+    results.forEach(result => {
+        wordCache.users.set(result.address, {
+            name: result.name,
+            tribe: result.tribe,
+            lastUpdated: Date.now()
+        });
+    });
+
+    return results;
+}
+
 async function updateSingleWord(index) {
     try {
-        const newWordInfo = await getWordWithAuthorInfo(index);
-        // Deep compare the new word info with cached version
-        if (!cachedWords[index] ||
-            JSON.stringify(cachedWords[index]) !== JSON.stringify(newWordInfo)) {
+        const [word, author] = await contract.getLastWord(index);
 
-            // Log tribe changes for debugging
-            if (cachedWords[index] && cachedWords[index].tribe !== newWordInfo.tribe) {
-                console.log(`Tribe change detected for word ${index}:`, {
-                    old: cachedWords[index].tribe,
-                    new: newWordInfo.tribe,
-                    author: newWordInfo.authorAddress
-                });
-            }
+        // Only fetch user info if we don't have it cached
+        if (author !== 'unknown' && !wordCache.users.has(author)) {
+            await fetchUserBatch([author]);
+        }
 
-            cachedWords[index] = newWordInfo;
+        const userInfo = wordCache.users.get(author) || { name: '', tribe: '0' };
+        const newWordInfo = {
+            word: word || '[...]',
+            authorAddress: author,
+            authorName: userInfo.name,
+            tribe: userInfo.tribe
+        };
+
+        // Only update if the word actually changed
+        if (!wordCache.words[index] ||
+            JSON.stringify(wordCache.words[index]) !== JSON.stringify(newWordInfo)) {
+
+            wordCache.words[index] = newWordInfo;
+            wordCache.version++;
             await updateWordsDisplay();
         }
+
     } catch (error) {
         console.error(`Error updating word ${index}:`, error);
-        // Don't update cache if we got an error
+        // Keep using cached version if available
+        if (wordCache.words[index]) {
+            showStatus('Using cached version due to network issues', 'warning');
+        }
     }
 }
 
@@ -203,10 +319,10 @@ async function updateWordsDisplay() {
     const wordsContainer = document.getElementById('words-display');
     wordsContainer.innerHTML = '';
 
-    // Display words as a continuous sentence
-    cachedWords.forEach((wordInfo, index) => {
+    wordCache.words.forEach((wordInfo, index) => {
+        if (!wordInfo) return; // Skip empty cache entries
+
         if (index > 0) {
-            // Add space before words (except the first one)
             wordsContainer.appendChild(document.createTextNode(' '));
         }
 
