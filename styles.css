@@ -209,3 +209,13 @@ body {
     0%, 100% { opacity: 0.3; }
     50% { opacity: 1; }
 }
+
+@keyframes softBlink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.word-pending {
+    color: white !important;
+    animation: softBlink 1.5s ease-in-out infinite;
+}
