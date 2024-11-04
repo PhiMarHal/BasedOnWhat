@@ -427,13 +427,16 @@ function showWordPopup(wordIndex, wordInfo) {
 
             setLoading(true);
 
+            // Store the original word info before optimistic update
+            const originalWordInfo = wordCache.words[wordIndex] ? { ...wordCache.words[wordIndex] } : null;
+
             // Optimistically update the display
             const optimisticWordInfo = {
                 word: newWord,
                 authorAddress: userAddress,
                 authorName: (await contract.users(userAddress)).name || userAddress,
-                tribe: 'pending', // Special case for pending words
-                isPending: true   // Flag to track pending state
+                tribe: 'pending',
+                isPending: true
             };
 
             // Update cache with optimistic data
@@ -455,9 +458,29 @@ function showWordPopup(wordIndex, wordInfo) {
             await updateSingleWord(wordIndex);
 
         } catch (error) {
-            showStatus(`Error: ${error.message}`, 'error');
-            // Revert optimistic update if there was an error
-            await updateSingleWord(wordIndex);
+            // Parse the error message
+            let errorMsg = 'Error: ';
+            if (error.code === 'ACTION_REJECTED' || error.message.includes('rejected')) {
+                errorMsg += 'Transaction cancelled';
+            } else if (error.message.includes('user rejected')) {
+                errorMsg += 'Transaction cancelled';
+            } else {
+                // For other errors, give a concise message
+                errorMsg += error.message.split('\n')[0].substring(0, 50); // Take first line, max 50 chars
+                if (error.message.length > 50) errorMsg += '...';
+            }
+
+            showStatus(errorMsg, 'error');
+
+            // Revert to original state if transaction was cancelled
+            if (originalWordInfo) {
+                wordCache.words[wordIndex] = originalWordInfo;
+            } else {
+                // If no original state, fetch from blockchain
+                await updateSingleWord(wordIndex);
+            }
+            await updateWordsDisplay();
+
         } finally {
             setLoading(false);
         }
@@ -552,7 +575,19 @@ function setLoading(isLoading) {
 
 function showStatus(message, type = 'info') {
     const statusElement = document.getElementById('status-messages');
-    statusElement.textContent = message;
+
+    // Clean up the message
+    let cleanMessage = message;
+    if (message.includes('0x')) {
+        // Remove transaction hashes and long hex strings
+        cleanMessage = message.replace(/0x[a-fA-F0-9]{10,}/g, '(tx)');
+    }
+    // Trim long messages
+    if (cleanMessage.length > 100) {
+        cleanMessage = cleanMessage.substring(0, 97) + '...';
+    }
+
+    statusElement.textContent = cleanMessage;
     statusElement.className = type + ' visible';
 
     setTimeout(() => {
