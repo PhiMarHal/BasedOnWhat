@@ -369,7 +369,7 @@ async function updateWordsDisplay() {
     });
 }
 
-function showWordPopup(wordIndex, wordInfo) {
+async function showWordPopup(wordIndex, wordInfo) {
     if (!userAddress) {
         showStatus('Please connect your wallet first', 'error');
         return;
@@ -406,13 +406,6 @@ function showWordPopup(wordIndex, wordInfo) {
     content.appendChild(info);
     popup.appendChild(content);
 
-    // Set up event listeners
-    popup.addEventListener('click', (e) => {
-        if (e.target === popup) {
-            popup.remove();
-        }
-    });
-
     button.addEventListener('click', async () => {
         const newWord = input.value.trim();
         if (!newWord) {
@@ -446,16 +439,37 @@ function showWordPopup(wordIndex, wordInfo) {
             // Close popup immediately
             popup.remove();
 
-            // Send transaction
-            const tx = await contract.contribute(wordIndex, newWord);
-            showStatus('Transaction sent! Waiting for confirmation...', 'success');
+            try {
+                // Send transaction
+                const tx = await contract.contribute(wordIndex, newWord);
+                showStatus('Transaction sent! Waiting for confirmation...', 'success');
 
-            // Wait for transaction confirmation
-            await tx.wait();
-            showStatus('Word contributed successfully!', 'success');
+                try {
+                    // Wait for transaction confirmation
+                    await tx.wait();
+                    showStatus('Word contributed successfully!', 'success');
+                    // Only now update with real data from blockchain
+                    await updateSingleWord(wordIndex);
+                } catch (confirmError) {
+                    showStatus('Transaction failed or was dropped', 'error');
+                    // Revert to original state and fetch current blockchain state
+                    if (originalWordInfo) {
+                        wordCache.words[wordIndex] = originalWordInfo;
+                        await updateWordsDisplay();
+                    }
+                    await updateSingleWord(wordIndex);
+                }
 
-            // Update with real data from blockchain
-            await updateSingleWord(wordIndex);
+            } catch (txError) {
+                // Transaction was rejected at wallet level
+                showStatus('Transaction cancelled', 'error');
+                // Revert to original state and fetch current blockchain state
+                if (originalWordInfo) {
+                    wordCache.words[wordIndex] = originalWordInfo;
+                    await updateWordsDisplay();
+                }
+                await updateSingleWord(wordIndex);
+            }
 
         } catch (error) {
             // Parse the error message
@@ -489,6 +503,13 @@ function showWordPopup(wordIndex, wordInfo) {
     input.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') {
             button.click();
+        }
+    });
+
+    // Close popup when clicking outside
+    popup.addEventListener('click', (e) => {
+        if (e.target === popup) {
+            popup.remove();
         }
     });
 
