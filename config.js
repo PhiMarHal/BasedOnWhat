@@ -1,5 +1,5 @@
 const CONFIG = {
-    CONTRACT_ADDRESS: "0x369ebdd12a2143659199ba22cce109c693ed022d",
+    CONTRACT_ADDRESS: "0x583148Fd85a0f7A6D8c7Ff665eA5Af445a38B238",
     RPC_URL: "https://base-rpc.publicnode.com",
     CONTRACT_ABI: [
         {
@@ -652,6 +652,19 @@ const CONFIG = {
                     "internalType": "string",
                     "name": "",
                     "type": "string"
+                }
+            ],
+            "stateMutability": "view",
+            "type": "function"
+        },
+        {
+            "inputs": [],
+            "name": "totalSupply",
+            "outputs": [
+                {
+                    "internalType": "uint256",
+                    "name": "",
+                    "type": "uint256"
                 }
             ],
             "stateMutability": "view",
