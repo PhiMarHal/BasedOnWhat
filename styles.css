@@ -30,32 +30,33 @@ body {
 }
 
 #app {
-    max-width: 800px;
+    max-width: 1200px;
     margin: 0 auto;
-    background: var(--background-light);
-    padding: 20px;
-    border-radius: 10px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
 }
 
+/* Separate header with light grey background */
 #header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 20px;
-    padding-bottom: 20px;
-    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 32px;
+    padding: 32px;
+    background: var(--background-light);
+    border-radius: 10px 10px 10px 10px;  /* Rounded only at top */
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
 }
+
 #wallet-info {
     display: flex;
     align-items: center;
-    height: 38px; /* Fixed height to prevent layout shift */
+    height: 38px;
 }
 
 #connect-wallet {
-    padding: 8px 16px;
+    padding: 16px 32px;
     background: var(--button-primary);
     color: white;
+    font-size: 24px;
     border: none;
     border-radius: 4px;
     cursor: pointer;
@@ -68,22 +69,26 @@ body {
 
 .wallet-address {
     color: var(--text-primary);
-    font-size: 16px;
+    font-size: 24px;
     font-family: monospace;
-    padding: 8px 12px;
+    padding: 16px 32px;
     background: var(--background-dark);
     border-radius: 4px;
 }
 
+/* Main words container */
 #words-display {
-    margin: 20px;
+    margin: 0 auto;  /* Changed from 20px auto */
     padding: 20px;
     background: var(--background-dark);
     border-radius: 5px;
     min-height: 200px;
     border: 1px solid var(--border-color);
+    max-width: 1200px;
+    font-size: 32px;
+    font-family: "Book Antiqua", Palatino, "Palatino Linotype", serif;
     line-height: 1.8;
-    font-size: 18px;
+    text-indent: 10%;
 }
 
 .word {

@@ -344,11 +344,7 @@ async function updateWordsDisplay() {
     wordsContainer.innerHTML = '';
 
     wordCache.words.forEach((wordInfo, index) => {
-        if (!wordInfo) return; // Skip empty cache entries
-
-        if (index > 0) {
-            wordsContainer.appendChild(document.createTextNode(' '));
-        }
+        if (!wordInfo) return;
 
         const wordSpan = document.createElement('span');
         wordSpan.className = 'word';
@@ -360,9 +356,12 @@ async function updateWordsDisplay() {
         wordSpan.dataset.index = index;
         wordSpan.dataset.author = wordInfo.authorName || wordInfo.authorAddress;
 
-        // Disable click handler for pending words
         if (!wordInfo.isPending) {
             wordSpan.onclick = () => showWordPopup(index, wordInfo);
+        }
+
+        if (index > 0) {
+            wordsContainer.appendChild(document.createTextNode(' '));
         }
 
         wordsContainer.appendChild(wordSpan);
