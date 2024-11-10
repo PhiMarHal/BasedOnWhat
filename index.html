@@ -9,10 +9,17 @@
 </head>
 
 <body>
+    <div class="background" id="background"></div>
+
     <div id="app">
         <div id="header">
             <div id="wallet-info">
                 <button id="connect-wallet">Connect Wallet</button>
+            </div>
+            <div class="background-controls">
+                <div class="toggle-group">
+                    <button class="toggle-button">ᛚᚮᛁᚤᛆᛆ</button>
+                </div>
             </div>
         </div>
 
@@ -24,8 +31,8 @@
     </div>
 
     <script src="ethers-5.7.2.umd.min.js"></script>
-    <script src="config.js?v=<?php echo rand(); ?>"></script>
-    <script src="app.js?v=<?php echo rand(); ?>"></script>
+    <script src="config.js"></script>
+    <script src="app.js"></script>
 </body>
 
 </html>

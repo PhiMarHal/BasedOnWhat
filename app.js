@@ -1,3 +1,59 @@
+// Animation initialization
+const runes = ['ᛚ', 'ᚮ', 'ᛁ', 'ᚤ', 'ᛆ', 'ᛆ'];
+
+function initializeBackgroundControls() {
+    const button = document.querySelector('.toggle-button');
+    const states = ['full', 'medium', 'off'];
+    const opacities = { full: 1, medium: 0.1, off: 0 };
+    let currentIndex = 0;
+
+    // Set initial state
+    button.dataset.state = states[currentIndex];
+
+    button.addEventListener('click', () => {
+        currentIndex = (currentIndex + 1) % 3;
+        const newState = states[currentIndex];
+
+        button.dataset.state = newState;
+
+        document.querySelectorAll('.column').forEach(col => {
+            col.style.opacity = opacities[newState];
+        });
+    });
+}
+
+function createColumns() {
+    const background = document.getElementById('background');
+    background.innerHTML = '';
+    const columnWidth = 15;
+    const numColumns = Math.ceil(window.innerWidth / columnWidth);
+
+    const runeHeight = 15 * 0.7;
+    const runeSequenceHeight = 6 * runeHeight;
+    const sequencesNeeded = Math.ceil(window.innerHeight / runeSequenceHeight) + 3;
+
+    for (let i = 0; i < numColumns; i++) {
+        const column = document.createElement('div');
+        column.className = 'column';
+        column.style.left = `${i * columnWidth}px`;
+
+        let columnContent = '';
+        for (let j = 0; j < sequencesNeeded * 2; j++) {
+            runes.forEach(rune => {
+                columnContent += rune + '\n';
+            });
+        }
+
+        column.textContent = columnContent;
+        background.appendChild(column);
+    }
+}
+
+// Initialize background animation
+window.addEventListener('resize', createColumns);
+createColumns();
+
+// Cache structure initialization
 let contract;
 let provider;
 let signer;
@@ -114,6 +170,9 @@ async function initializeApp() {
         // Set up UI event listeners
         document.getElementById('connect-wallet').addEventListener('click', connectWallet);
 
+        // Initialize background controls
+        initializeBackgroundControls();
+
         // Initial load of all words
         await loadAllWords();
 
@@ -134,6 +193,8 @@ async function initializeApp() {
         showStatus(`Initialization error: ${error.message}`, 'error');
     }
 }
+
+
 
 function setupCacheMaintenance() {
     // Clean up old user data periodically
