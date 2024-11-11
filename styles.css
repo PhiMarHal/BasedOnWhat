@@ -370,3 +370,83 @@ body {
     color: white !important;
     animation: softBlink 1.5s ease-in-out infinite;
 }
+
+/* Add these media queries to your styles.css */
+
+@media (max-width: 800px) {
+    body {
+        padding: 12px;  /* Reduced from 20px */
+    }
+
+    #header {
+        padding: 16px;  /* Reduced from 32px */
+        margin-bottom: 16px;  /* Reduced from 32px */
+    }
+
+    #connect-wallet {
+        padding: 8px 16px;  /* Reduced from 16px 32px */
+        font-size: 14px;  /* Reduced from 24px */
+    }
+
+    .wallet-address {
+        font-size: 14px;  /* Reduced from 24px */
+        padding: 8px 16px;  /* Reduced from 16px 32px */
+    }
+
+    #words-display {
+        font-size: 16px;  /* Reduced from 32px */
+        padding: 4px;  /* Reduced from 20px */
+    }
+
+    /* Toggle button adjustments */
+    .toggle-group {
+        width: 60px;  /* Reduced from 90px */
+        height: 26px;  /* Reduced from 40px */
+        padding: 3px;  /* Reduced from 4px */
+    }
+
+    .toggle-button {
+        width: 32px;  /* Reduced from 32px */
+        height: 24px;  /* Reduced from 32px */
+        font-size: 8px;  /* Reduced from 14px */
+    }
+
+    .toggle-button[data-state="full"] {
+        left: 2px;  /* Reduced from 4px */
+    }
+
+    .toggle-button[data-state="medium"] {
+        left: 16px;  /* Recalculated: (60px - 20px) / 2 + 3px padding */
+    }
+
+    .toggle-button[data-state="off"] {
+        left: 32px;  /* Recalculated: 60px - 20px - 3px padding */
+    }
+
+    /* Status messages */
+    #status-messages {
+        font-size: 14px;  /* Add if not already specified */
+        padding: 8px 16px;  /* Reduced if needed */
+        max-width: 90%;  /* Prevent overflow on small screens */
+    }
+
+    /* Popup adjustments */
+    .popup-content {
+        width: 85%;  /* Slightly smaller than current 90% */
+        padding: 16px;  /* Reduced from 20px */
+    }
+
+    .popup-input {
+        padding: 8px;  /* Reduced from 10px */
+        font-size: 14px;  /* Reduced from 16px */
+    }
+
+    .popup-button {
+        padding: 8px;  /* Reduced from 10px */
+        font-size: 14px;  /* Reduced from 16px */
+    }
+
+    .word-info {
+        font-size: 10px;  /* Reduced from 12px */
+    }
+}
