@@ -185,9 +185,7 @@ async function initializeApp() {
         setupPendingTransactionCleanup();
 
         if (window.ethereum) {
-            window.ethereum.on('chainChanged', () => {
-                window.location.reload();
-            });
+            window.ethereum.on('chainChanged', handleChainChange);
         }
     } catch (error) {
         showStatus(`Initialization error: ${error.message}`, 'error');
@@ -836,6 +834,21 @@ async function submitWord() {
         showStatus(`Submission error: ${error.message}`, 'error');
     } finally {
         setLoading(false);
+    }
+}
+
+async function handleChainChange(newChainId) {
+    try {
+        // Only reinitialize signer if we're on Base
+        if (newChainId === '0x2105') {
+            const web3Provider = new ethers.providers.Web3Provider(window.ethereum);
+            signer = web3Provider.getSigner();
+            // Update contract with signer for write operations
+            contract = new ethers.Contract(CONFIG.CONTRACT_ADDRESS, CONFIG.CONTRACT_ABI, signer);
+            showStatus('Connected to Base network', 'success');
+        }
+    } catch (error) {
+        showStatus(`Network change error: ${error.message}`, 'error');
     }
 }
 
