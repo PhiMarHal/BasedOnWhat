@@ -461,6 +461,122 @@ async function showWordPopup(wordIndex, wordInfo) {
     popup.querySelector('.popup-input').focus();
 }
 
+async function setupWordPopup(wordIndex, wordInfo) {
+    const popup = document.createElement('div');
+    popup.className = 'word-popup';
+
+    const content = document.createElement('div');
+    content.className = 'popup-content';
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'popup-input';
+    input.placeholder = 'Enter new word';
+    input.maxLength = 32;
+
+    const button = document.createElement('button');
+    button.className = 'popup-button';
+    button.textContent = 'Contribute';
+
+    const info = document.createElement('div');
+    info.className = 'word-info';
+    info.textContent = `#${wordIndex}, by ${wordInfo.authorName || wordInfo.authorAddress}`;
+
+    content.appendChild(input);
+    content.appendChild(button);
+    content.appendChild(info);
+    popup.appendChild(content);
+
+    const originalWordInfo = { ...wordInfo };
+
+    button.addEventListener('click', async () => {
+        try {
+            setLoading(true);
+            const newWord = input.value.trim();
+
+            if (!newWord) {
+                showStatus('Please enter a word', 'error');
+                return;
+            }
+
+            if (!validateWord(newWord)) {
+                throw new Error('Word must contain only letters, with optional punctuation at the end');
+            }
+
+            // Update display optimistically
+            wordCache.words[wordIndex] = {
+                word: newWord,
+                authorAddress: userAddress,
+                authorName: (await contract.users(userAddress)).name || userAddress,
+                tribe: 'pending',
+                isPending: true
+            };
+            await updateWordsDisplay();
+
+            // Close popup immediately
+            popup.remove();
+
+            try {
+                // Send transaction
+                const tx = await contract.contribute(wordIndex, newWord);
+                showStatus('Transaction sent! Waiting for confirmation...', 'success');
+                await tx.wait();
+                showStatus('Word contributed successfully!', 'success');
+                await updateSingleWord(wordIndex);
+
+            } catch (txError) {
+                showStatus('Transaction failed', 'error');
+                // Revert to original state
+                wordCache.words[wordIndex] = originalWordInfo;
+                await updateWordsDisplay();
+            }
+
+        } catch (error) {
+            let errorMsg = 'Error: ';
+            if (error.code === 'ACTION_REJECTED' || error.message.includes('rejected')) {
+                errorMsg += 'Transaction cancelled';
+            } else {
+                errorMsg += error.message.split('\n')[0].substring(0, 50);
+            }
+            showStatus(errorMsg, 'error');
+
+            // Revert to original state
+            wordCache.words[wordIndex] = originalWordInfo;
+            await updateWordsDisplay();
+        } finally {
+            setLoading(false);
+        }
+    });
+
+    input.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') button.click();
+    });
+
+    // Close popup when clicking outside
+    popup.addEventListener('click', (e) => {
+        if (e.target === popup) popup.remove();
+    });
+
+    return popup;
+}
+
+function validateWord(word) {
+    // First check if the word is empty or too long
+    if (!word || word.length > 32) return false;
+
+    // If word is only one character, it must be a letter
+    if (word.length === 1) return /^[a-zA-Z]$/.test(word);
+
+    // For longer words:
+    // 1. All characters except the last must be letters
+    // 2. Last character can be a letter or allowed punctuation
+    const allButLast = word.slice(0, -1);
+    const lastChar = word.slice(-1);
+
+    return /^[a-zA-Z]+$/.test(allButLast) &&
+        /^[a-zA-Z,\.;!?]$/.test(lastChar);
+}
+
 // Registration popup system
 function createRegistrationPopupElements() {
     const popup = document.createElement('div');
