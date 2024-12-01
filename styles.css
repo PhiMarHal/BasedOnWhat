@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 :root {
     /* Base theme colors */
     --background-dark: rgba(32, 32, 32, 0.85);
@@ -449,4 +450,457 @@ body {
     .word-info {
         font-size: 10px;  /* Reduced from 12px */
     }
+=======
+:root {
+    /* Base theme colors */
+    --background-dark: rgba(32, 32, 32, 0.85);
+    --background-light: rgba(45, 45, 45, 0.9);
+    --text-primary: #e0e0e0;
+    --text-secondary: #a0a0a0;
+    --border-color: #404040;
+    
+    /* Tribe colors from contract */
+    --yellow-tribe: #FFD700;
+    --red-tribe: #FF4444;
+    --green-tribe: #4CAF50;
+    --blue-tribe: #4fc3dc;
+
+    /* UI element colors */
+    --button-primary: #4CAF50;
+    --button-hover: #45a049;
+    --input-background: rgba(51, 51, 51, 0.95);
+    --input-border: #404040;
+    --popup-background: rgba(0, 0, 0, 0.9);
+}
+
+/* Base styles */
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 20px;
+    color: var(--text-primary);
+    line-height: 1.6;
+    position: relative;
+    min-height: 100vh;
+}
+
+#app {
+    max-width: 1200px;
+    margin: 0 auto;
+    position: relative;
+    z-index: 1;
+}
+
+/* Animation background styles */
+.background {
+    width: 100%;
+    height: 100vh;
+    background: #1a1a1a;
+    overflow: hidden;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: -1;
+}
+
+.column {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    font-size: 20px;
+    line-height: 0.75;
+    will-change: transform;
+    white-space: pre;
+    transform-origin: top;
+    opacity: 1;
+}
+
+/* Animation speeds */
+.column:nth-child(8n+1) {
+    color: #e0e0e0;
+    animation: scrollDown 5s linear infinite;
+}
+
+.column:nth-child(8n+2) {
+    color: #a0a0a0;
+    animation: scrollUp 5s linear infinite;
+}
+
+.column:nth-child(8n+3) {
+    color: #e0e0e0;
+    animation: scrollDown 4s linear infinite;
+}
+
+.column:nth-child(8n+4) {
+    color: #a0a0a0;
+    animation: scrollUp 4s linear infinite;
+}
+
+.column:nth-child(8n+5) {
+    color: #e0e0e0;
+    animation: scrollDown 3s linear infinite;
+}
+
+.column:nth-child(8n+6) {
+    color: #a0a0a0;
+    animation: scrollUp 3s linear infinite;
+}
+
+.column:nth-child(8n+7) {
+    color: #e0e0e0;
+    animation: scrollDown 2s linear infinite;
+}
+
+.column:nth-child(8n+8) {
+    color: #a0a0a0;
+    animation: scrollUp 2s linear infinite;
+}
+
+@keyframes scrollDown {
+    0% {
+        transform: translateY(-63px) scaleY(0.7);
+    }
+
+    100% {
+        transform: translateY(0) scaleY(0.7);
+    }
+}
+
+@keyframes scrollUp {
+    0% {
+        transform: translateY(0) scaleY(0.7);
+    }
+
+    100% {
+        transform: translateY(-63px) scaleY(0.7);
+    }
+}
+
+/* Add to your existing styles.css */
+
+.background-controls {
+    display: flex;
+    align-items: center;
+}
+
+.toggle-group {
+    width: 96px;
+    height: 32px;
+    background: var(--background-dark);
+    border-radius: 20px;
+    position: relative;
+    padding: 4px;
+}
+
+.toggle-button {
+    position: absolute;
+    top: 4px;
+    width: 64px;
+    height: 32px;
+    background: var(--button-primary);
+    border: none;
+    border-radius: 16px;
+    color: white;
+    font-size: 16px;
+    cursor: pointer;
+    transition: left 0.5s ease;
+}
+
+.toggle-button[data-state="full"] {
+    left: 4px;
+}
+
+.toggle-button[data-state="medium"] {
+    left: 20px;
+}
+
+.toggle-button[data-state="off"] {
+    left: 36px; 
+}
+
+.control-label {
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+.toggle-button:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.toggle-button.active {
+    background: var(--button-primary);
+    color: white;
+}
+
+/* Update the existing header styles */
+#header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 32px;
+    padding: 32px;
+    background: var(--background-light);
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+}
+
+#wallet-info {
+    display: flex;
+    align-items: center;
+    height: 38px;
+}
+
+#connect-wallet {
+    padding: 16px 32px;
+    background: var(--button-primary);
+    color: white;
+    font-size: 24px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+#connect-wallet:hover {
+    background: var(--button-hover);
+}
+
+.wallet-address {
+    color: var(--text-primary);
+    font-size: 24px;
+    font-family: monospace;
+    padding: 16px 32px;
+    background: var(--background-dark);
+    border-radius: 4px;
+}
+
+/* Main words container */
+#words-display {
+    margin: 0 auto;  /* Changed from 20px auto */
+    padding: 20px;
+    background: var(--background-dark);
+    border-radius: 5px;
+    min-height: 200px;
+    border: 1px solid var(--border-color);
+    max-width: 1200px;
+    font-size: 32px;
+    font-family: "Book Antiqua", Palatino, "Palatino Linotype", serif;
+    line-height: 1.8;
+    text-indent: 10%;
+}
+
+.word {
+    display: inline;
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 3px;
+    transition: background-color 0.2s ease;
+}
+
+.word[data-tribe="0"] {
+    color: var(--yellow-tribe);
+}
+
+.word[data-tribe="1"] {
+    color: var(--red-tribe);
+}
+
+.word[data-tribe="2"] {
+    color: var(--green-tribe);
+}
+
+.word[data-tribe="3"] {
+    color: var(--blue-tribe);
+}
+
+.word:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.word-popup {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: var(--popup-background);
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.popup-content {
+    background: var(--background-light);
+    padding: 20px;
+    border-radius: 10px;
+    width: 90%;
+    max-width: 400px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.popup-input {
+    width: 100%;
+    padding: 10px;
+    background: var(--input-background);
+    border: 1px solid var(--input-border);
+    border-radius: 4px;
+    color: var(--text-primary);
+    font-size: 16px;
+    box-sizing: border-box;
+}
+
+.popup-button {
+    padding: 10px;
+    background: var(--button-primary);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background 0.2s ease;
+}
+
+.word-info {
+    font-size: 12px;
+    color: var(--text-secondary);
+    text-align: center;
+}
+
+#status-messages {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 10px 20px;
+    border-radius: 4px;
+    background: var(--background-light);
+    text-align: center;
+    z-index: 1001;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+#status-messages.visible {
+    opacity: 1;
+}
+
+.error {
+    background: rgba(198, 40, 40, 0.2);
+    color: #ff6b6b;
+}
+
+.success {
+    background: rgba(76, 175, 80, 0.2);
+    color: #81c784;
+}
+
+.loading-dots {
+    font-size: 96px;
+    text-align: center;
+    color: var(--text-primary);
+    font-family: Arial, sans-serif;
+    height: 100px;
+    line-height: 100px;
+    animation: fade 1s infinite;
+}
+
+@keyframes fade {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 1; }
+}
+
+@keyframes softBlink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.word-pending {
+    color: white !important;
+    animation: softBlink 1.5s ease-in-out infinite;
+}
+
+/* Add these media queries to your styles.css */
+
+@media (max-width: 800px) {
+    body {
+        padding: 12px;  /* Reduced from 20px */
+    }
+
+    #header {
+        padding: 16px;  /* Reduced from 32px */
+        margin-bottom: 16px;  /* Reduced from 32px */
+    }
+
+    #connect-wallet {
+        padding: 8px 16px;  /* Reduced from 16px 32px */
+        font-size: 14px;  /* Reduced from 24px */
+    }
+
+    .wallet-address {
+        font-size: 14px;  /* Reduced from 24px */
+        padding: 8px 16px;  /* Reduced from 16px 32px */
+    }
+
+    #words-display {
+        font-size: 16px;  /* Reduced from 32px */
+        padding: 4px;  /* Reduced from 20px */
+    }
+
+    /* Toggle button adjustments */
+    .toggle-group {
+        width: 60px;  /* Reduced from 90px */
+        height: 26px;  /* Reduced from 40px */
+        padding: 3px;  /* Reduced from 4px */
+    }
+
+    .toggle-button {
+        width: 32px;  /* Reduced from 32px */
+        height: 24px;  /* Reduced from 32px */
+        font-size: 8px;  /* Reduced from 14px */
+    }
+
+    .toggle-button[data-state="full"] {
+        left: 2px;  /* Reduced from 4px */
+    }
+
+    .toggle-button[data-state="medium"] {
+        left: 16px;  /* Recalculated: (60px - 20px) / 2 + 3px padding */
+    }
+
+    .toggle-button[data-state="off"] {
+        left: 32px;  /* Recalculated: 60px - 20px - 3px padding */
+    }
+
+    /* Status messages */
+    #status-messages {
+        font-size: 14px;  /* Add if not already specified */
+        padding: 8px 16px;  /* Reduced if needed */
+        max-width: 90%;  /* Prevent overflow on small screens */
+    }
+
+    /* Popup adjustments */
+    .popup-content {
+        width: 85%;  /* Slightly smaller than current 90% */
+        padding: 16px;  /* Reduced from 20px */
+    }
+
+    .popup-input {
+        padding: 8px;  /* Reduced from 10px */
+        font-size: 14px;  /* Reduced from 16px */
+    }
+
+    .popup-button {
+        padding: 8px;  /* Reduced from 10px */
+        font-size: 14px;  /* Reduced from 16px */
+    }
+
+    .word-info {
+        font-size: 10px;  /* Reduced from 12px */
+    }
+>>>>>>> b6b29b71047b9d350676c5aa8f3d47ecb7baca71
 }
