@@ -839,45 +839,72 @@ async function updateWalletDisplay() {
     }
 
     try {
-        // Check if user has registered a name
         const user = await contract.users(userAddress);
         const displayText = user.name ? user.name : `${userAddress.slice(0, 6)}...${userAddress.slice(-4)}`;
 
         walletInfo.innerHTML = `
             <span class="wallet-address" 
-                  title="Click to disconnect, right-click to copy address" 
-                  style="cursor: pointer;"
+                title="${userAddress}" 
+                style="cursor: pointer;"
             >${displayText}</span>
         `;
 
-        // Get the span element
         const addressSpan = walletInfo.querySelector('.wallet-address');
+        let longPressTimer;
+        let isLongPress = false;
 
-        // Left click to disconnect
-        addressSpan.addEventListener('click', async () => {
-            userAddress = null;
-            signer = null;
-            contract = new ethers.Contract(CONFIG.CONTRACT_ADDRESS, CONFIG.CONTRACT_ABI, provider);
-            await updateWalletDisplay();
-            showStatus('Wallet disconnected', 'success');
+        // Desktop events
+        addressSpan.addEventListener('click', async (e) => {
+            if (!isLongPress) {
+                userAddress = null;
+                signer = null;
+                contract = new ethers.Contract(CONFIG.CONTRACT_ADDRESS, CONFIG.CONTRACT_ABI, provider);
+                await updateWalletDisplay();
+                showStatus('Wallet disconnected', 'success');
+            }
         });
 
-        // Right click to copy address
         addressSpan.addEventListener('contextmenu', async (e) => {
-            e.preventDefault(); // Prevent the context menu from appearing
+            e.preventDefault();
+            await copyAddress();
+        });
+
+        // Mobile events
+        addressSpan.addEventListener('touchstart', (e) => {
+            isLongPress = false;
+            longPressTimer = setTimeout(() => {
+                isLongPress = true;
+                copyAddress();
+            }, 500); // 500ms for long press
+        });
+
+        addressSpan.addEventListener('touchend', (e) => {
+            clearTimeout(longPressTimer);
+            if (!isLongPress) {
+                // Handle as normal click (disconnect)
+                addressSpan.click();
+            }
+        });
+
+        addressSpan.addEventListener('touchmove', (e) => {
+            clearTimeout(longPressTimer);
+            isLongPress = false;
+        });
+
+        async function copyAddress() {
             try {
                 await navigator.clipboard.writeText(userAddress);
                 showStatus('Address copied to clipboard!', 'success');
             } catch (error) {
                 showStatus('Failed to copy address', 'error');
             }
-        });
+        }
 
     } catch (error) {
         console.error('Error fetching user info:', error);
         walletInfo.innerHTML = `
             <span class="wallet-address" 
-                  title="Click to disconnect, right-click to copy address"
+                  title="Click to disconnect, hold to copy address"
                   style="cursor: pointer;"
             >${userAddress.slice(0, 6)}...${userAddress.slice(-4)}</span>
         `;

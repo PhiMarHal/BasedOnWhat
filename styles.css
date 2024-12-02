@@ -225,33 +225,41 @@ body {
     box-sizing: border-box;
 }
 
+/* Add to styles.css */
 #wallet-info {
     flex: 1;
+    height: 38px; /* Consistent height for both states */
+    display: flex;
+    align-items: center;
 }
 
 #connect-wallet {
-    padding: 16px 32px;
+    padding: 12px 24px; /* Reduced padding to match address display */
     background: var(--button-primary);
     color: white;
     font-size: 24px;
+    font-family: monospace;
     border: none;
     border-radius: 4px;
     cursor: pointer;
     transition: background 0.2s ease;
 }
 
-#connect-wallet:hover {
-    background: var(--button-hover);
-}
-
 .wallet-address {
     color: var(--text-primary);
     font-size: 24px;
     font-family: monospace;
-    padding: 16px 32px;
+    padding: 8px 16px;
     background: var(--background-dark);
     border-radius: 4px;
+    user-select: none; /* Prevent text selection on mobile */
 }
+
+
+#connect-wallet:hover {
+    background: var(--button-hover);
+}
+
 
 /* Main words container */
 #words-display {
