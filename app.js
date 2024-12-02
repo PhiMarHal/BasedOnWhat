@@ -845,14 +845,26 @@ async function updateWalletDisplay() {
 
         walletInfo.innerHTML = `
             <span class="wallet-address" 
-                  title="${userAddress}" 
-                  style="cursor: copy;"
+                  title="Click to disconnect, right-click to copy address" 
+                  style="cursor: pointer;"
             >${displayText}</span>
         `;
 
-        // Add click handler for copying
+        // Get the span element
         const addressSpan = walletInfo.querySelector('.wallet-address');
+
+        // Left click to disconnect
         addressSpan.addEventListener('click', async () => {
+            userAddress = null;
+            signer = null;
+            contract = new ethers.Contract(CONFIG.CONTRACT_ADDRESS, CONFIG.CONTRACT_ABI, provider);
+            await updateWalletDisplay();
+            showStatus('Wallet disconnected', 'success');
+        });
+
+        // Right click to copy address
+        addressSpan.addEventListener('contextmenu', async (e) => {
+            e.preventDefault(); // Prevent the context menu from appearing
             try {
                 await navigator.clipboard.writeText(userAddress);
                 showStatus('Address copied to clipboard!', 'success');
@@ -865,8 +877,8 @@ async function updateWalletDisplay() {
         console.error('Error fetching user info:', error);
         walletInfo.innerHTML = `
             <span class="wallet-address" 
-                  title="${userAddress}"
-                  style="cursor: copy;"
+                  title="Click to disconnect, right-click to copy address"
+                  style="cursor: pointer;"
             >${userAddress.slice(0, 6)}...${userAddress.slice(-4)}</span>
         `;
     }
